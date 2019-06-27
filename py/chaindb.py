@@ -14,7 +14,7 @@ class BlockchainStorage:
     def __init__(self, path, genesis=None):
         self.path = path
         if genesis==None:
-            if (not os.isDir(path)) or (not os.isFile(os.path.join(path,DIR_LENFILE))):
+            if (not os.path.isdir(path)) or (not os.path.isfile(os.path.join(path,DIR_LENFILE))):
                 raise FileNotFoundError("No blockchain database exists at '"+path+"'")
             # load the database
             with open(os.path.join(path,DIR_LENFILE)) as f:
@@ -23,12 +23,12 @@ class BlockchainStorage:
         else:
             if type(genesis)!=bytes:
                 raise ValueError("genesis parameter should be None or a bytes object")
-            if os.isDir(path) and os.isFile(os.path.join(path,DIR_LENFILE)):
+            if os.path.isdir(path) and os.path.isfile(os.path.join(path,DIR_LENFILE)):
                 with open(os.path.join(path,DIR_LENFILE)) as f:
                     self.length = int(f.read())
                     if self.length>0:
                         # the genesis block should exist
-                        if !os.isFile(os.path.join(path,GENESIS_FILE)):
+                        if not os.isFile(os.path.join(path,GENESIS_FILE)):
                             # but it doesn't?
                             raise Exception("Invalid existing database, not overwriting")
                         else:
@@ -40,7 +40,7 @@ class BlockchainStorage:
                                     raise ValueError("Existing blockchain database is incompatible")
                                 else:
                                     # yep; we can just load.
-                                    
+                                    pass
                     else:
                         # existing db is empty?
                         raise Exception("Empty existing database, not overwriting")
@@ -50,12 +50,14 @@ class BlockchainStorage:
                 f.write('1')
             with open(os.path.join(path,GENESIS_FILE), 'wb') as f:
                 f.write(genesis)
+            # make sure to initialize with one block
+            self.length = 1
     def getLength(self):
         return self.length
     def getBlockData(self, blocknum):
         if blocknum>=self.length:
             raise ValueError("Blocknumber is higher than database size")
-        with open(os.path.join(path,str(blocknum)+".blk"), 'rb') as f:
+        with open(os.path.join(self.path,str(blocknum)+".blk"), 'rb') as f:
             return f.read()
     def writeBlock(self, blocknum, data, overwrite_ok=False):
         if (not overwrite_ok) and blocknum<self.length:
@@ -64,5 +66,9 @@ class BlockchainStorage:
             raise ValueError("Cannot add blocks into the future")
         if type(data)!=bytes:
             raise ValueError("data parameter must be a bytes object")
-        with open(os.path.join(path,str(blocknum)+".blk"), 'wb') as f:
+        with open(os.path.join(self.path,str(blocknum)+".blk"), 'wb') as f:
             f.write(data)
+        self.length+=1
+        with open(os.path.join(path,DIR_LENFILE), 'w') as f:
+            f.write(str(self.length))
+        
