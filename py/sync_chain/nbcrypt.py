@@ -1,7 +1,7 @@
 # nbcrypt.py
 # easy-to-use cryptography functions
 
-from ecdsa import SECP256k1, SigningKey
+from ecdsa import SECP256k1, SigningKey, VerifyingKey
 from sha3 import sha3_512
 
 def hash(data):
@@ -9,10 +9,24 @@ def hash(data):
         if type(data)!=str:
             raise ValueError("Expected str or bytes")
         data = data.encode()
-    return sha3_512(data)
+    return sha3_512(data).digest()
 
 def make_keypair():
     pri = SigningKey.generate(curve=SECP256k1)
     return pri.to_string(), pri.get_verifying_key().to_string()
 
-#def sign(data, 
+def sign(data, prikey):
+    if type(data)!=bytes:
+        if type(data)!=str:
+            raise ValueError("Expected str or bytes")
+        data = data.encode()
+    return SigningKey.from_string(prikey, SECP256k1).sign(data)
+def verify(data, pubkey, signature):
+    if type(data)!=bytes:
+        if type(data)!=str:
+            raise ValueError("Expected str or bytes")
+        data = data.encode()
+    try:
+        return VerifyingKey.from_string(pubkey, SECP256k1).verify(signature, data)
+    except:
+        return False
