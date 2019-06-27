@@ -73,11 +73,11 @@ class BlockchainStorage:
         with open(os.path.join(path,DIR_LENFILE), 'w') as f:
             f.write(str(self.length))
 class Transaction:
-    # decode() will convert Transaction->bytes
+    # decode() will convert Transaction->bytes, int (data consumed)
     # decode(bytes) will convert bytes->Transaction
     def decode(data):
         if type(data)==Transaction:
-            return data.pub+data.sig+data.type+len(self.payload).to_bytes(3, 'little')+self.payload
+            return data.pub+data.sig+bytes([data.type])+len(data.payload).to_bytes(3, 'little')+data.payload
         if type(data)!=bytes:
             raise ValueError("Must give this function a bytes object.")
         if(len(data)<132):
@@ -99,7 +99,7 @@ class Transaction:
         if size+132!=len(data):
             return None # wrong length!
 
-        return Transaction(public_key, signature, t_type, data[132:size+132])
+        return Transaction(public_key, signature, t_type, data[132:size+132]), size+132
     def sign(payload, type_t, prikey, pubkey):
         if type(payload)!=bytes:
             raise ValueError("Must give this function a bytes object.")
@@ -121,6 +121,8 @@ class Transaction:
         
 class Block:
     def decode(data):
+        if type(data)==Block:
+            return data.__encode()
         if type(data)!=bytes:
             raise ValueError("Must give this function a bytes object.")
         if(len(data)<264):
@@ -139,14 +141,39 @@ class Block:
         last_sig    = data[128:192]
         extra       = data[192:256]
         timestamp   = int.from_bytes(data[256:264], 'little')
+
+        # now decode all of the transactions
+        transactions = []
+        transactions_raw = data[264:]
+        while len(transactions_raw)>0:
+            transaction, size = Transaction.decode(transactions_raw)
+            if transaction==None:
+                raise ValueError("Invalid transaction found in coded block")
+            transactions.append(transaction)
+            transactions_raw = transactions_raw[size:]
         
-        
-        result = Block(public_key, signature, last_sig, extra, timestamp, transactions)
-    def __init__(self, pub_key, sig, last_block_signature, extra = bytes(64), timestamp = None, transactions = []):
+        return Block(last_sig, extra, timestamp, transactions, public_key, signature)
+    def __init__(self, last_block_signature, extra = bytes(64), timestamp = None, transactions = [], pub_key = None, sig = None):
         if timestamp==None:
             timestamp=int(time.time())
         self.timestamp = timestamp
         self.pub = pub_key
+        self.sig = sig
         self.ls_s = last_block_signature
         self.extra = extra
         self.transactions = transactions
+    def __encode(self):
+        output = self.pub+self.sig
+        the_rest = self.ls_s+self.extra+self.timestamp.to_bytes(8, 'little')
+        for i in self.transactions:
+            the_rest+=i.decode()
+        if self.pub==None or self.sig==None or nbcrypt.verify(the_rest, self.pub, self.sig):
+            return output+the_rest
+        else:
+            raise Exception("Block has not been properly signed.")
+    def sign(self, pri, pub):
+        the_rest = self.ls_s+self.extra+self.timestamp.to_bytes(8, 'little')
+        for i in self.transactions:
+            the_rest+=i.decode()
+        self.pub = pub
+        self.sig = nbcrypt.sign(the_rest, pri)
