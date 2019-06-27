@@ -1,4 +1,5 @@
-import os
+import os, time
+from sync_chain import nbcrypt
 
 # chaindb.py
 
@@ -71,4 +72,81 @@ class BlockchainStorage:
         self.length+=1
         with open(os.path.join(path,DIR_LENFILE), 'w') as f:
             f.write(str(self.length))
+class Transaction:
+    # decode() will convert Transaction->bytes
+    # decode(bytes) will convert bytes->Transaction
+    def decode(data):
+        if type(data)==Transaction:
+            return data.pub+data.sig+data.type+len(self.payload).to_bytes(3, 'little')+self.payload
+        if type(data)!=bytes:
+            raise ValueError("Must give this function a bytes object.")
+        if(len(data)<132):
+            raise ValueError("Transaction cannot be less than 132 bytes.")
+
+        # Extract the block's properties first
+        public_key  = data[0:64]
+        signature   = data[64:128]
+
+        the_rest    = data[128:]
         
+        # check the transaction signature first to make sure it's legit
+        if(not nbcrypt.verify(the_rest, public_key, signature)):
+            return None  # It's bullshit!
+
+        t_type = data[128]
+        size = int.from_bytes(data[129:132], 'little')
+
+        if size+132!=len(data):
+            return None # wrong length!
+
+        return Transaction(public_key, signature, t_type, data[132:size+132])
+    def sign(payload, type_t, prikey, pubkey):
+        if type(payload)!=bytes:
+            raise ValueError("Must give this function a bytes object.")
+        if len(payload)>2**24:
+            raise ValueError("Payload is too big!")
+        data = bytes([type_t])+len(payload).to_bytes(3, 'little')+payload
+        sig = nbcrypt.sign(data, prikey)
+        return Transaction(pubkey, sig, type_t, payload)
+    def __init__(self, pub, sig, t_type, payload):
+        if type(payload)!=bytes:
+            raise ValueError("Must give this function a bytes object.")
+        if len(payload)>2**24:
+            raise ValueError("Payload is too big!")
+        self.payload = payload
+        self.pub = pub
+        self.sig = sig
+        self.type = t_type
+        
+        
+class Block:
+    def decode(data):
+        if type(data)!=bytes:
+            raise ValueError("Must give this function a bytes object.")
+        if(len(data)<264):
+            raise ValueError("Block cannot be less than 264 bytes.")
+
+        # Extract the block's properties first
+        public_key  = data[0:64]
+        signature   = data[64:128]
+
+        the_rest    = data[128:]
+        
+        # check the block signature first to make sure it's legit
+        if(not nbcrypt.verify(the_rest, public_key, signature)):
+            return None  # It's bullshit!
+        
+        last_sig    = data[128:192]
+        extra       = data[192:256]
+        timestamp   = int.from_bytes(data[256:264], 'little')
+        
+        
+        result = Block(public_key, signature, last_sig, extra, timestamp, transactions)
+    def __init__(self, pub_key, sig, last_block_signature, extra = bytes(64), timestamp = None, transactions = []):
+        if timestamp==None:
+            timestamp=int(time.time())
+        self.timestamp = timestamp
+        self.pub = pub_key
+        self.ls_s = last_block_signature
+        self.extra = extra
+        self.transactions = transactions
