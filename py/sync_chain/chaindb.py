@@ -118,7 +118,6 @@ class Transaction:
         self.sig = sig
         self.type = t_type
         
-        
 class Block:
     def decode(data):
         if type(data)==Block:
@@ -156,6 +155,14 @@ class Block:
     def __init__(self, last_block_signature, extra = bytes(64), timestamp = None, transactions = [], pub_key = None, sig = None):
         if timestamp==None:
             timestamp=int(time.time())
+        if type(extra)==str:
+            extra = extra.encode()
+        if len(extra)<64:
+            extra+=bytes(64-len(extra))
+        elif len(extra)>64:
+            raise ValueError("Extra is too long!")
+        if len(last_block_signature)!=64:
+            raise ValueError("last block signature must be 64 bytes!")
         self.timestamp = timestamp
         self.pub = pub_key
         self.sig = sig

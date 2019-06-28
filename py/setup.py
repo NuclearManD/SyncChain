@@ -14,7 +14,7 @@ setuptools.setup(
     url="https://github.com/NuclearManD/SyncChain",
     packages=setuptools.find_packages(),
     install_requires=[
-          'ecdsa', 'pysha3'
+          'ecdsa', 'pysha3', 'cryptography'
       ],
     classifiers=[
         "Programming Language :: Python :: 3",
